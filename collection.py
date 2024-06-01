@@ -8,18 +8,17 @@ cascPathProfile = "data/haarcascade_profileface.xml"
 # 얼굴 인식용 Haar Cascade 생성
 faceCascadeProfile = cv2.CascadeClassifier(cascPathProfile)
 
-# 저장된 얼굴 데이터 불러오기
+# 얼굴 데이터 저장 경로
 data_dir = 'face_data'
-known_faces = np.load(os.path.join(data_dir, 'known_faces.npy'))
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
 
-# 고정된 얼굴 이미지 크기
-fixed_face_size = (100, 100)
-
-# 웹캠 초기화
 video_capture = cv2.VideoCapture(0)
 
-# 임계값 설정
-threshold = 90  # 이 값을 조정하여 정확도를 높일 수 있습니다.
+collected_face_encodings = []
+fixed_face_size = (100, 100)  # 고정된 얼굴 이미지 크기
+
+print("Press 'c' to capture and 'q' to quit.")
 
 def calculate_iou(boxA, boxB):
     xA = max(boxA[0], boxB[0])
@@ -38,7 +37,6 @@ def calculate_iou(boxA, boxB):
 while True:
     ret, frame = video_capture.read()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    mask = np.zeros_like(gray)  # 처리된 영역을 기록할 마스크 배열
 
     # 측면 얼굴 검출 (원래 이미지)
     facesProfile = faceCascadeProfile.detectMultiScale(
@@ -65,55 +63,40 @@ while True:
 
     # 겹치는 바운딩 박스 제거
     filtered_faces = []
-    skip_indices = set()
     for i, face in enumerate(all_faces):
-        if i in skip_indices:
-            continue
+        keep = True
         for j, other_face in enumerate(all_faces):
-            if i != j and j not in skip_indices:
+            if i != j:
                 iou = calculate_iou(face[:4], other_face[:4])
                 if iou > 0.3:  # 60%로 변경
-                    skip_indices.add(j)
-        filtered_faces.append(face)
+                    keep = False
+                    break
+        if keep:
+            filtered_faces.append(face)
 
-    # 얼굴 처리
+    # 검출된 측면 얼굴 처리
     for (x, y, w, h, is_flipped) in filtered_faces:
         if is_flipped:
             roi_gray = gray_flipped[y:y + h, x:x + w]
         else:
             roi_gray = gray[y:y + h, x:x + w]
-
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
         resized_face = cv2.resize(roi_gray, fixed_face_size)
-        min_diff = np.inf
+        collected_face_encodings.append(resized_face)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)  # 파란색 박스로 표시
 
-        for known_face in known_faces:
-            diff = np.mean(np.abs(known_face - resized_face))
-            if diff < min_diff:
-                min_diff = diff
-
-        if min_diff >= threshold and np.sum(mask[y:y + h, x:x + w]) == 0:  # 아직 처리되지 않은 영역인지 확인
-            # 얼굴 영역에 블러 처리 (동그라미 형태)
-            face_region = frame[y:y + h, x:x + w]
-            blurred_face = cv2.GaussianBlur(face_region, (21, 21), 5)  # 약한 블러
-
-            # 동그라미 마스크 생성
-            mask_circle = np.zeros_like(face_region, dtype=np.uint8)
-            center = (w // 2, h // 2)
-            radius = min(w, h) // 2
-            cv2.circle(mask_circle, center, radius, (255, 255, 255), -1, cv2.LINE_AA)
-
-            # 마스크를 사용하여 동그라미 모양으로 블러 적용
-            masked_face = np.where(mask_circle == 255, blurred_face, face_region)
-            frame[y:y + h, x:x + w] = masked_face
-
-            # 처리된 영역을 마스크에 기록
-            mask[y:y + h, x:x + w] = 255
-
+    # 결과 프레임을 표시합니다
     cv2.imshow('Video', frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('c'):
+        if len(filtered_faces) > 0:
+            print("Faces captured and added.")
+    elif key == ord('q'):
         break
+
+# 얼굴 데이터 저장
+face_encodings_array = np.array(collected_face_encodings)
+np.save(os.path.join(data_dir, 'known_faces.npy'), face_encodings_array)
 
 video_capture.release()
 cv2.destroyAllWindows()

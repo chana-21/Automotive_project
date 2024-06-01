@@ -1,14 +1,47 @@
 import cv2
-import numpy as np
 
-# Numpy 배열 생성
-image = np.zeros((512, 512, 3), dtype=np.uint8)
+# Load the pre-trained Haar Cascade classifier for face detection using CUDA
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# Numpy 배열을 GPU 메모리로 복사
-d_image = cv2.cuda_GpuMat()
-d_image.upload(image)
+# Start the webcam video capture
+cap = cv2.VideoCapture(0)
 
-gray_image = cv2.cuda.cvtColor(d_image, cv2.COLOR_BGR2GRAY)
-result = gray_image.download()
+if not cap.isOpened():
+    print("Error: Could not open video stream from webcam.")
+    exit()
 
-cv2.imshow('gray_image', result)
+while True:
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+
+    if not ret:
+        print("Error: Could not read frame from webcam.")
+        break
+
+    # Convert the frame to grayscale as the face detector expects gray images
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Upload the grayscale image to the GPU
+    gpu_frame = cv2.cuda_GpuMat()
+    gpu_frame.upload(gray)
+
+    # Detect faces in the frame using CUDA
+    faces = face_cascade.detectMultiScale(gpu_frame)
+
+    # Download the results back to the CPU
+    faces = faces.download()
+
+    # Draw rectangles around the detected faces
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+    # Display the resulting frame
+    cv2.imshow('Face Detection', frame)
+
+    # Break the loop if the 'q' key is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the webcam and close the window
+cap.release()
+cv2.destroyAllWindows()
