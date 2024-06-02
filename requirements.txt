@@ -1,0 +1,8 @@
+numpy
+pillow
+opencv
+scipy
+cmake
+dlib
+face_recognition
+face_recognition_models
