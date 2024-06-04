@@ -5,18 +5,22 @@ import dlib
 
 def collect_face_data(user_name):
     save_dir = 'dataset'
+    total_images = 300
+    saved_images = 0
+
     cap = cv2.VideoCapture(0)
     detector = dlib.get_frontal_face_detector()
 
-    total_images = 20
-    saved_images = 0
+    cv2.namedWindow('Collecting Faces', cv2.WINDOW_NORMAL)
+    # cv2.resizeWindow('Collecting Faces', 1280, 720)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
     user_dir = os.path.join(save_dir, user_name)
     if not os.path.exists(user_dir):
         os.makedirs(user_dir)
-
-
 
     while saved_images < total_images:
         ret, frame = cap.read()
@@ -45,5 +49,5 @@ def collect_face_data(user_name):
 
 
 if __name__ == '__main__':
-    user_name = 'chana'
+    user_name = 'conan'
     collect_face_data(user_name)

@@ -22,7 +22,9 @@ def load_face_data():
 
 
 def recognize_faces():
-    cap = cv2.VideoCapture('Conan_show.mp4')
+    video_path = 'asdf.mp4'
+
+    cap = cv2.VideoCapture(video_path)
     # cap = cv2.VideoCapture(0)
 
     detector = dlib.get_frontal_face_detector()
@@ -34,8 +36,18 @@ def recognize_faces():
 
     fps = cap.get(cv2.CAP_PROP_FPS)
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or 'H264' if 'mp4v' doesn't work
-    out = cv2.VideoWriter('output.mp4', fourcc, fps, (width, height))
+    if video_path:
+        output_dir = 'output'
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        output_video = os.path.basename(video_path)
+        output_video, _ = os.path.splitext(output_video)
+        output_video = output_video + '.mp4'
+        output_video = os.path.join(output_dir, output_video)
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_video, fourcc, fps, (width, height))
 
     while True:
         ret, frame = cap.read()
@@ -49,8 +61,8 @@ def recognize_faces():
 
         face_names = []
         for face_encoding in encodings:
-            matches = face_recognition.compare_faces(known_faces, face_encoding)
             name = "unknown"
+            matches = face_recognition.compare_faces(known_faces, face_encoding, TOLERANCE)
 
             face_distances = face_recognition.face_distance(known_faces, face_encoding)
             best_match_index = np.argmin(face_distances)
@@ -79,11 +91,11 @@ def recognize_faces():
                 face_region = cv2.add(face_region, cv2.bitwise_and(face_region_blurred, face_region_blurred, mask=mask))
 
                 frame[top:bottom, left:right] = face_region
-            else:
-                cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
+            # else:
+            #     cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
 
         out.write(frame)
-        cv2.imshow('Video', frame)
+        # cv2.imshow('Video', frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
